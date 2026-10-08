@@ -4,7 +4,7 @@ import { type } from "@tauri-apps/plugin-os";
 import {
   checkAccessibilityPermission,
   requestAccessibilityPermission,
-} from "tauri-plugin-macos-permissions-api";
+} from "@/lib/permissions";
 
 // Define permission state type
 type PermissionState = "request" | "verify" | "granted";

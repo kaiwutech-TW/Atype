@@ -145,7 +145,7 @@ struct KeyboardView: View {
 
     private var statusText: String {
         switch model.phase {
-        case .idle: model.warm ? "點麥克風直接說" : "點麥克風會先打開 Atype"
+        case .idle: model.warm ? "點麥克風直接說" : "請先開啟 Atype 並啟用待命"
         case .preparing: "準備中…"
         case .recording: model.commandMode ? "✦ AI 指令聆聽中…" : "聆聽中…"
         case .processing: model.commandMode ? "✦ AI 撰寫中…" : "整理中…"

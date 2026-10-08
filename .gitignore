@@ -23,3 +23,7 @@ local.properties
 apps/ios/Atype.xcodeproj/
 apps/ios/AtypeCore/.build/
 apps/ios/AtypeCore/.swiftpm/
+
+# Release logs and generated distribution projects
+/build-*.log
+apps/mac/distribution/AtypeDistribution.xcodeproj/

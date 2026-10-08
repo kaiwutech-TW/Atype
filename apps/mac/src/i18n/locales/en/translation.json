@@ -7,7 +7,9 @@
     "model": "Model",
     "quit": "Quit",
     "cancel": "Cancel",
-    "secureInputWarning": "⚠ Shortcuts blocked by Secure Input"
+    "secureInputWarning": "⚠ Shortcuts blocked by Secure Input",
+    "store_dictation": "Start / Stop Dictation (Copy Result)",
+    "store_command": "Start / Stop AI Command (Copy Result)"
   },
   "sidebar": {
     "general": "General",

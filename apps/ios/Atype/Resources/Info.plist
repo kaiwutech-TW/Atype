@@ -13,10 +13,11 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
-			<key>CFBundleURLName</key><string>com.atype.ios</string>
+			<key>CFBundleURLName</key><string>com.yentingwu.atype.ios</string>
 			<key>CFBundleURLSchemes</key><array><string>atype</string></array>
 		</dict>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key><false/>
 	<key>LSRequiresIPhoneOS</key><true/>
 	<key>NSMicrophoneUsageDescription</key><string>Atype 需要麥克風來聽你說話；聲音只在這支手機上辨識。</string>
 	<key>NSSpeechRecognitionUsageDescription</key><string>Atype 用 iPhone 內建的語音辨識，在手機本機把你說的話轉成文字。</string>

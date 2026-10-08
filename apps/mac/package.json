@@ -17,7 +17,8 @@
     "test:keyboard": "bun src/lib/utils/keyboard.test.ts",
     "app:install": "bash scripts/install-mac.sh",
     "icon:set": "bash scripts/set-icon.sh",
-    "icon:gen": "bun scripts/gen-icon.ts"
+    "icon:gen": "bun scripts/gen-icon.ts",
+    "app:store:build": "VITE_APP_STORE=true tauri build --features app-store --config src-tauri/tauri.appstore.conf.json -- --no-default-features"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.16",

@@ -784,6 +784,10 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
         text
     };
 
+    if cfg!(feature = "app-store") {
+        return write_text_to_clipboard(&app_handle, &text);
+    }
+
     info!(
         "Using paste method: {:?}, delay before: {}ms, delay after: {}ms",
         paste_method, paste_delay_ms, paste_delay_after_ms

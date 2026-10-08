@@ -2,11 +2,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { platform } from "@tauri-apps/plugin-os";
 import {
+  isAppStore,
   checkAccessibilityPermission,
   requestAccessibilityPermission,
   checkMicrophonePermission,
   requestMicrophonePermission,
-} from "tauri-plugin-macos-permissions-api";
+} from "@/lib/permissions";
 import { toast } from "sonner";
 import { commands } from "@/bindings";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -51,7 +52,7 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
   const isMacOS = permissionPlatform === "macos";
   const isWindows = permissionPlatform === "windows";
   const showMicrophonePermission = isMacOS || isWindows;
-  const showAccessibilityPermission = isMacOS;
+  const showAccessibilityPermission = isMacOS && !isAppStore;
 
   const allGranted = isMacOS
     ? permissions.accessibility === "granted" &&

@@ -16,6 +16,8 @@ struct HomeView: View {
                         Image("Logo").resizable().frame(width: 56, height: 56).accessibilityHidden(true)
                     }
                     if model.fromKeyboard && (model.phase == .recording || model.phase == .preparing) { backHint }
+                    Text("使用鍵盤前，請先在 Atype 完成一次錄音進入待命，再手動切回原本的 App。")
+                        .font(.footnote).foregroundStyle(.secondary)
                     modePicker
                     if command && !model.isBusy {
                         NavigationLink { PromptLibraryView() } label: {
@@ -52,7 +54,7 @@ struct HomeView: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "arrow.up.backward.circle.fill").font(.title).foregroundStyle(Theme.green)
             VStack(alignment: .leading, spacing: 4) {
-                Text("點左上角「◀」回到原本的 App").font(.headline)
+                Text("切回原本的 App 使用 Atype 鍵盤").font(.headline)
                 Text("Atype 會在背景繼續聽。說完在鍵盤上點停止，字就會插進去。").font(.subheadline).foregroundStyle(.secondary)
             }
         }

@@ -1,0 +1,39 @@
+name: AtypeDistribution
+options:
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: 6K8DY4FKSW
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: "8"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    ENABLE_APP_SANDBOX: YES
+    ENABLE_HARDENED_RUNTIME: YES
+    ARCHS: arm64
+    ONLY_ACTIVE_ARCH: YES
+targets:
+  Atype:
+    type: application
+    platform: macOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yentingwu.atype.mac
+        PRODUCT_NAME: Atype
+        EXECUTABLE_NAME: atype
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: ../src-tauri/target/release/bundle/macos/Atype.app/Contents/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ../src-tauri/Entitlements.appstore.plist
+        SKIP_INSTALL: NO
+    preBuildScripts:
+      - name: Copy verified Tauri App Store bundle
+        path: stage-bundle.sh
+        basedOnDependencyAnalysis: false
+schemes:
+  Atype:
+    build:
+      targets:
+        Atype: all
+    archive:
+      config: Release

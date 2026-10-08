@@ -7,7 +7,9 @@
     "model": "模型",
     "quit": "結束",
     "cancel": "取消",
-    "secureInputWarning": "⚠ 快捷鍵被 Secure Input 阻擋"
+    "secureInputWarning": "⚠ 快捷鍵被 Secure Input 阻擋",
+    "store_dictation": "開始／停止聽寫（結果複製後手動貼上）",
+    "store_command": "開始／停止 AI 指令（結果複製後手動貼上）"
   },
   "sidebar": {
     "general": "一般",

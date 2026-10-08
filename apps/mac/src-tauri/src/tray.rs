@@ -572,6 +572,25 @@ fn build_menu(app: &AppHandle, inputs: &MenuInputs) -> tauri::Result<(Menu<tauri
         )?
     };
 
+    if cfg!(feature = "app-store") {
+        let dictation = MenuItem::with_id(
+            app,
+            "store_dictation",
+            &strings.store_dictation,
+            true,
+            None::<&str>,
+        )?;
+        let command = MenuItem::with_id(
+            app,
+            "store_command",
+            &strings.store_command,
+            true,
+            None::<&str>,
+        )?;
+        menu.insert(&dictation, 2)?;
+        menu.insert(&command, 3)?;
+    }
+
     // When update checks are forced off (e.g. HANDY_DISABLE_UPDATER, set by
     // the Nix package), the item is dropped from the menu rather than shown
     // disabled — it can never do anything in that case, and a disabled item

@@ -24,9 +24,9 @@ bun run app:install      # 編譯並安裝到「應用程式」
 
 ## iPhone
 
-跟 Typeless 一樣用法的鍵盤：點麥克風，Atype 收音後自動跳回原本的 App，說完字插在游標處；✦ AI 指令、提示詞、詞典、我的資料透過 iCloud 和 Mac 共用。辨識用 iPhone 內建的本機模型。
+Atype 鍵盤使用公開 iOS API：先手動開啟 Atype，完成一次錄音進入待命，再切回原本的 App。待命中可由鍵盤控制錄音，說完文字插在游標處。待命結束後須重新開啟 Atype。✦ AI 指令、提示詞、詞典、我的資料透過 iCloud 和 Mac 共用；辨識使用 iPhone 內建的本機模型。
 
-**沒有提供下載，要自己用 Xcode 編譯**（Xcode 26+、[XcodeGen](https://github.com/yonaskolb/XcodeGen)、Apple 帳號；免費帳號裝的 App 7 天後要重裝）：
+**自行建置**需要 Xcode 26+、[XcodeGen](https://github.com/yonaskolb/XcodeGen) 與支援 App Groups 的 Apple Developer 團隊：
 
 ```bash
 cd Atype/apps/ios
@@ -35,6 +35,36 @@ open Atype.xcodeproj
 ```
 
 把 Atype 與 AtypeKeyboard 兩個 target 的 Team 換成你的帳號，接上 iPhone 執行；再到「設定 → 一般 → 鍵盤 → 鍵盤 → 新增鍵盤」加入 Atype 並打開「允許完全取用」。
+
+## TestFlight 建置與上傳
+
+發布團隊為 YENTING WU。iOS 使用 `com.yentingwu.atype.ios`，Mac 使用 `com.yentingwu.atype.mac`；下一次上傳前增加 iOS `project.yml` 與 Mac `tauri.appstore.conf.json`、`distribution/project.yml` 中的 build number。App Store Connect 必須先有對應的 App 紀錄。
+
+Mac TestFlight 版為沙盒版：從選單控制錄音，結果複製到剪貼簿供手動貼上；不使用全域鍵盤輸入與透明私有 API 浮窗。一般下載版保留 `macos-overlay` 預設 feature。沙盒版的預設第二大腦存放在 App 自己的容器中；外部資料夾需由使用者授權，不能直接套用一般版的任意磁碟路徑。
+
+從儲存庫根目錄執行，簽署與上傳沿用 Xcode 已登入的帳號：
+
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodegen generate --spec apps/ios/project.yml
+xcodebuild -project apps/ios/Atype.xcodeproj -scheme Atype -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath build/releases/Atype-iOS.xcarchive \
+  -allowProvisioningUpdates archive
+xcodebuild -exportArchive -archivePath build/releases/Atype-iOS.xcarchive \
+  -exportOptionsPlist apps/ios/ExportOptions.plist -exportPath build/releases/ios \
+  -allowProvisioningUpdates
+
+(cd apps/mac && MACOSX_DEPLOYMENT_TARGET=14.0 bun run app:store:build)
+xcodegen generate --spec apps/mac/distribution/project.yml
+xcodebuild -project apps/mac/distribution/AtypeDistribution.xcodeproj -scheme Atype \
+  -configuration Release -destination 'generic/platform=macOS' \
+  -archivePath build/releases/Atype-macOS.xcarchive -allowProvisioningUpdates archive
+xcodebuild -exportArchive -archivePath build/releases/Atype-macOS.xcarchive \
+  -exportOptionsPlist apps/mac/distribution/ExportOptions.plist \
+  -exportPath build/releases/macos -allowProvisioningUpdates
+```
+
+`ExportOptions.plist` 的 destination 是 upload，上述 export 指令會實際上傳。Mac 目前僅建置 Apple Silicon；TestFlight 的 Apple 處理結果與測試群組可在 App Store Connect 檢查。
 
 ## 怎麼運作
 

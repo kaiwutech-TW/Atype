@@ -12,7 +12,7 @@
 import Foundation
 
 enum Bridge {
-    static let group = "group.com.atype.ios"
+    static let group = "group.com.yentingwu.atype.ios"
     nonisolated(unsafe) static let defaults = UserDefaults(suiteName: group) ?? .standard
 
     enum Phase: String {

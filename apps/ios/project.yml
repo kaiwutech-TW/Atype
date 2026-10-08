@@ -1,6 +1,6 @@
 name: Atype
 options:
-  bundleIdPrefix: com.atype
+  bundleIdPrefix: com.yentingwu.atype
   deploymentTarget:
     iOS: "26.0"
   createIntermediateGroups: true
@@ -8,8 +8,8 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
-    DEVELOPMENT_TEAM: 83JDL9KX23
+    CURRENT_PROJECT_VERSION: "8"
+    DEVELOPMENT_TEAM: 6K8DY4FKSW
     CODE_SIGN_STYLE: Automatic
 packages:
   AtypeCore:
@@ -26,7 +26,7 @@ targets:
       - target: AtypeKeyboard
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.atype.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.yentingwu.atype.ios
         INFOPLIST_FILE: Atype/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: Atype/Resources/Atype.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -39,7 +39,7 @@ targets:
       - path: Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.atype.ios.keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.yentingwu.atype.ios.keyboard
         INFOPLIST_FILE: AtypeKeyboard/Info.plist
         CODE_SIGN_ENTITLEMENTS: AtypeKeyboard/AtypeKeyboard.entitlements
         TARGETED_DEVICE_FAMILY: "1"

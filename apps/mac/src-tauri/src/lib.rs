@@ -302,6 +302,16 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                     let _ = app.emit("check-for-updates", ());
                 }
             }
+            "store_dictation" => {
+                signal_handle::send_transcription_input(app, "transcribe", "menu");
+            }
+            "store_command" => {
+                signal_handle::send_transcription_input(
+                    app,
+                    "transcribe_with_post_process",
+                    "menu",
+                );
+            }
             "copy_last_transcript" => {
                 tray::copy_last_transcript(app);
             }
@@ -853,7 +863,7 @@ pub fn run(cli_args: CliArgs) {
                 .build(),
         );
 
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", feature = "macos-overlay"))]
     {
         builder = builder.plugin(tauri_nspanel::init());
     }
@@ -1027,7 +1037,9 @@ pub fn run(cli_args: CliArgs) {
             // Secure Input monitor (macOS): detects stuck secure input that
             // silently blocks keyed shortcuts, warns the user, and activates
             // the Carbon fallback. See secure_input.rs and issue #1578.
-            secure_input::init(&app_handle);
+            if !cfg!(feature = "app-store") {
+                secure_input::init(&app_handle);
+            }
 
             // Populate the overlay-enabled cache from initial settings so the
             // audio path (overlay::emit_levels, called ~24 Hz during recording)

@@ -1,0 +1,15 @@
+{
+  "app": {
+    "macOSPrivateApi": false
+  },
+  "bundle": {
+    "macOS": {
+      "entitlements": "Entitlements.appstore.plist",
+      "signingIdentity": null,
+      "bundleVersion": "8",
+      "minimumSystemVersion": "14.0",
+      "infoPlist": "Info.appstore.plist"
+    }
+  },
+  "identifier": "com.yentingwu.atype.mac"
+}

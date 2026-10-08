@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
 	<key>com.apple.security.application-groups</key>
-	<array><string>group.com.atype.ios</string></array>
+	<array><string>group.com.yentingwu.atype.ios</string></array>
 </dict>
 </plist>

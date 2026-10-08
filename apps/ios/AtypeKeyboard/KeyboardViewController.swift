@@ -11,7 +11,6 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        HostIdentity.enableArbiter()
         model = KeyboardModel(controller: self)
         let host = UIHostingController(rootView: KeyboardView(model: model, globe: GlobeKey(controller: self)))
         host.view.backgroundColor = .clear
@@ -48,53 +47,11 @@ final class KeyboardViewController: UIInputViewController {
         return id
     }
 
-    /// One-off diagnostics: which host-related selectors exist (logged once).
-    private static var introspected = false
-    func logHostSelectors() {
-        guard !Self.introspected else { return }
-        Self.introspected = true
-        let objects: [NSObject?] = [self, parent, parent?.parent, extensionContext]
-        for obj in objects.compactMap({ $0 }) {
-            var names: [String] = []
-            var cls: AnyClass? = type(of: obj)
-            while let c = cls, names.count < 60 {
-                var count: UInt32 = 0
-                if let list = class_copyMethodList(c, &count) {
-                    for i in 0..<Int(count) {
-                        let n = NSStringFromSelector(method_getName(list[i]))
-                        if n.localizedCaseInsensitiveContains("host") || n.localizedCaseInsensitiveContains("bundle") || n.localizedCaseInsensitiveContains("pid") {
-                            names.append(n)
-                        }
-                    }
-                    free(list)
-                }
-                cls = class_getSuperclass(c)
-                if c == UIViewController.self { break }
-            }
-            // Names only: reading values can crash (e.g. _hostAuditToken).
-            DebugLog.log("kb", "\(type(of: obj)): \(names.joined(separator: " ").prefix(900))")
-        }
-    }
-
     override func textDidChange(_ textInput: (any UITextInput)?) {
         model.refresh()
     }
 
-    /// Open the Atype app. Keyboards cannot call UIApplication.open directly,
-    /// so find the application object in the responder chain.
-    func openApp(_ url: URL) {
-        let selector = NSSelectorFromString("openURL:options:completionHandler:")
-        var responder: UIResponder? = self
-        while let r = responder {
-            if NSStringFromClass(type(of: r)).hasSuffix("Application"), r.responds(to: selector) {
-                typealias Open = @convention(c) (AnyObject, Selector, URL, NSDictionary, ((Bool) -> Void)?) -> Void
-                let imp = r.method(for: selector)
-                unsafeBitCast(imp, to: Open.self)(r, selector, url, NSDictionary(), nil)
-                return
-            }
-            responder = r.next
-        }
-    }
+
 }
 
 @MainActor
@@ -161,7 +118,7 @@ final class KeyboardModel: ObservableObject {
             if Bridge.appIsWarm {
                 Bridge.post(command ? .startCommand : .start)
             } else {
-                controller?.openApp(URL(string: "atype://start?mode=\(command ? "command" : "dictation")")!)
+                message = "請先手動開啟 Atype 完成一次錄音進入待命，再切回原本的 App 使用鍵盤。"
             }
         default:
             break

@@ -5,16 +5,14 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 
-#[cfg(not(target_os = "macos"))]
 use log::debug;
 
-#[cfg(not(target_os = "macos"))]
 use tauri::WebviewWindowBuilder;
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-overlay"))]
 use tauri::WebviewUrl;
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-overlay"))]
 use tauri_nspanel::{tauri_panel, CollectionBehavior, PanelBuilder, PanelLevel, StyleMask};
 
 #[cfg(target_os = "linux")]
@@ -23,7 +21,7 @@ use crate::utils;
 #[cfg(target_os = "linux")]
 use gtk_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-overlay"))]
 tauri_panel! {
     panel!(RecordingOverlayPanel {
         config: {
@@ -388,7 +386,7 @@ fn place_windows_overlay(
 }
 
 /// Creates the recording overlay window and keeps it hidden by default
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(all(target_os = "macos", feature = "macos-overlay")))]
 pub fn create_recording_overlay(app_handle: &AppHandle) {
     // On Linux (Wayland), monitor detection often fails, but we don't need exact coordinates
     // for Layer Shell as we use anchors. On other platforms, we require a monitor.
@@ -419,10 +417,14 @@ pub fn create_recording_overlay(app_handle: &AppHandle) {
     .decorations(false)
     .always_on_top(true)
     .skip_taskbar(true)
-    .transparent(true)
     .focusable(false)
     .focused(false)
     .visible(false);
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder = builder.transparent(true);
+    }
 
     if let Some(data_dir) = crate::portable::data_dir() {
         builder = builder.data_directory(data_dir.join("webview"));
@@ -450,7 +452,7 @@ pub fn create_recording_overlay(app_handle: &AppHandle) {
 }
 
 /// Creates the recording overlay panel and keeps it hidden by default (macOS)
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-overlay"))]
 pub fn create_recording_overlay(app_handle: &AppHandle) {
     if let Some((x, y)) = calculate_overlay_position(app_handle, OVERLAY_WIDTH, OVERLAY_HEIGHT) {
         // PanelBuilder creates a Tauri window then converts it to NSPanel.

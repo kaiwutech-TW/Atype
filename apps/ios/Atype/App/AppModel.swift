@@ -65,7 +65,6 @@ final class AppModel {
         }
         engine.model = recognizer
         listenToKeyboard()
-        HostTracker.shared.start()
     }
 
     // MARK: Shared config
@@ -241,7 +240,6 @@ final class AppModel {
             startLevelMeter()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             DebugLog.log("app", "recording fromKeyboard=\(fromKeyboard) command=\(command)")
-            if fromKeyboard { returnToHost() }
         } catch {
             DebugLog.log("app", "start failed: \(error)")
             errorMessage = "無法開始錄音：\(error.localizedDescription)"
@@ -299,27 +297,6 @@ final class AppModel {
         shutdownMic()
         phase = .idle
         publish()
-    }
-
-    /// Send the user back to the app they were typing in: the host the
-    /// keyboard state showed at launch/switch, reopened by its URL scheme.
-    private func returnToHost() {
-        Task { @MainActor in
-            let fromKeyboard = Bridge.hostBundleID
-            Bridge.hostBundleID = nil
-            var found = fromKeyboard
-            if found == nil { found = await HostTracker.shared.recentHost() }
-            guard let host = found else {
-                DebugLog.log("app", "return: host unknown")
-                return
-            }
-            guard host != "<null>", let scheme = HostTracker.schemes[host], let url = URL(string: scheme) else {
-                DebugLog.log("app", "return: no scheme for \(host)")
-                return
-            }
-            let ok = await UIApplication.shared.open(url)
-            DebugLog.log("app", "return: open \(scheme) for \(host) -> \(ok)")
-        }
     }
 
     private func startLevelMeter() {
