@@ -40,6 +40,14 @@ enum Bridge {
         static let message = "message"
         static let hostBundleID = "hostBundleID"
         static let level = "level"
+        static let polishDictation = "polishDictation"
+    }
+
+    /// The main mic runs the AI cleanup prompt (set from the keyboard's
+    /// top-right switch or the app's settings).
+    static var polishDictation: Bool {
+        get { defaults.bool(forKey: Key.polishDictation) }
+        set { defaults.set(newValue, forKey: Key.polishDictation) }
     }
 
     /// Microphone level 0…1, updated ~12 times a second while recording.
@@ -94,9 +102,21 @@ enum Bridge {
         Date().timeIntervalSince(heartbeat) < 3 && (standbyUntil > Date() || phase != .idle)
     }
 
-    static func publishResult(_ text: String) {
+    /// The keyboard confirmed the latest result is in the text field.
+    static var lastInsertConfirmed: Bool {
+        get { defaults.bool(forKey: "lastInsertConfirmed") }
+        set { defaults.set(newValue, forKey: "lastInsertConfirmed") }
+    }
+
+    static var resultID: String? { defaults.string(forKey: Key.resultID) }
+
+    @discardableResult
+    static func publishResult(_ text: String) -> String {
+        lastInsertConfirmed = false
         defaults.set(text, forKey: Key.resultText)
-        defaults.set(UUID().uuidString, forKey: Key.resultID)
+        let id = UUID().uuidString
+        defaults.set(id, forKey: Key.resultID)
+        return id
     }
 
     /// The result the keyboard has not inserted yet, if any; marks it taken.
@@ -105,6 +125,12 @@ enum Bridge {
               let text = defaults.string(forKey: Key.resultText) else { return nil }
         defaults.set(id, forKey: Key.consumedID)
         return text
+    }
+
+    /// A result is waiting to be inserted.
+    static var hasPendingResult: Bool {
+        guard let id = defaults.string(forKey: Key.resultID) else { return false }
+        return id != defaults.string(forKey: Key.consumedID)
     }
 
     /// Forget a pending result (a new take started).

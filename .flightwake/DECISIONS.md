@@ -13,3 +13,5 @@
 | 2026-10-08 | TestFlight 使用 com.yentingwu.atype 的 bundle ID 與 App Group | 原 com.atype ID 無法註冊至此團隊；YENTING WU 的 App Store Connect 尚無 App 紀錄 | — |
 
 | 2026-10-08 | Mac App Store 使用獨立 app-store feature 與沙盒設定；選單錄音、剪貼簿輸出 | 沙盒限制全域輸入；保留一般下載版的既有行為 | 公開 API 能支援自動輸入時 |
+
+| 2026-10-08 | 以 release/testflight 分支合併遠端更新並保存發布修改 | 避免直接推送共同預設分支，讓團隊透過 PR 審查發布限制差異 | 發布修改合併後改用每項工作獨立分支 |

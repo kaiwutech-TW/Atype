@@ -58,6 +58,8 @@ final class KeyboardViewController: UIInputViewController {
 final class KeyboardModel: ObservableObject {
     @Published var phase: Bridge.Phase = .idle
     @Published var commandMode = false
+    /// The main mic also runs the AI cleanup (top-right switch).
+    @Published var aiDictation = Bridge.polishDictation
     @Published var partial = ""
     @Published var message = ""
     @Published var warm = false
@@ -80,9 +82,18 @@ final class KeyboardModel: ObservableObject {
         self.controller = controller
         Bridge.observe(.changed) { [weak self] in Task { @MainActor in self?.refresh() } }
         Bridge.observe(.level) { [weak self] in Task { @MainActor in self?.level = Bridge.level } }
-        // The "warm" icon follows the app's heartbeat.
+        // The "warm" icon follows the app's heartbeat. The same tick catches a
+        // result whose "changed" notification was missed (the keyboard can be
+        // suspended during a long take), so text is never left behind.
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.warm = Bridge.appIsWarm }
+            Task { @MainActor in
+                guard let self else { return }
+                self.warm = Bridge.appIsWarm
+                if self.visible, Bridge.hasPendingResult || Bridge.phase != self.phase {
+                    if Bridge.hasPendingResult { DebugLog.log("kb", "poll: pending result") }
+                    self.refresh()
+                }
+            }
         }
         refresh()
     }
@@ -92,16 +103,28 @@ final class KeyboardModel: ObservableObject {
         needsGlobe = controller?.needsInputModeSwitchKey ?? false
         phase = Bridge.phase
         commandMode = Bridge.commandMode
+        aiDictation = Bridge.polishDictation
         partial = Bridge.partial
         message = Bridge.message
         warm = Bridge.appIsWarm
         // A result the app published while we were away (or just now).
         if visible, let proxy, let text = Bridge.takeResult() {
+            let before = proxy.documentContextBeforeInput ?? ""
             proxy.insertText(text)
-            undoStack.append(text)
-            redoStack.removeAll()
-            DebugLog.log("kb", "inserted \(text.count) chars")
-            message = ""
+            let after = proxy.documentContextBeforeInput ?? ""
+            // Some apps drop the text silently; check the end of the field.
+            let tail = String(text.trimmingCharacters(in: .whitespacesAndNewlines).suffix(8))
+            let ok = !tail.isEmpty && after.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix(tail)
+            DebugLog.log("kb", "insert \(ok ? "ok" : "NOT CONFIRMED") \(text.count) chars contextBefore=\(before.count) contextAfter=\(after.count)")
+            if ok {
+                undoStack.append(text)
+                redoStack.removeAll()
+                Bridge.lastInsertConfirmed = true
+                message = ""
+            } else {
+                UIPasteboard.general.string = text
+                message = "可能沒插進去，已複製，長按輸入框貼上"
+            }
         }
     }
 
@@ -127,11 +150,18 @@ final class KeyboardModel: ObservableObject {
 
     func cancel() { Bridge.post(.cancel) }
 
+    func setAIDictation(_ on: Bool) {
+        guard on != aiDictation else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        aiDictation = on
+        Bridge.polishDictation = on
+    }
+
     /// Remove the last dictation from before the cursor (when it is still
     /// there as inserted), keeping it for redo.
     func undo() {
         guard let proxy, let text = undoStack.last else { return }
-        let before = proxy.documentContextBeforeInput ?? ""
+        guard let before = proxy.documentContextBeforeInput, !before.isEmpty else { return }
         // The context can be truncated for long text; only check what we see.
         let visible = String(text.suffix(before.count))
         guard before.hasSuffix(visible) else {
