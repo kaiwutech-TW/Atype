@@ -1,17 +1,17 @@
 ---
-updated: 2026-10-08
+updated: 2026-10-11
 updated_by: Codex
-latest_record: records/261008-ios-build10.md
+latest_record: records/261011-sync.md
 health: yellow  # builds and tests passed; real-device verification pending
 ---
 
 # Where we are
 
-iOS 0.1.0（10）已上傳成功，包含末尾句號更新；Apple 正在處理，證據見 latest_record。Mac 保持 build 8（records/261008-testflight.md）。
+release/testflight 已合併原 repo 至 770aed5 的 iOS 更新，編譯／測試通過；未 push 或再次上傳，詳見 latest_record。TestFlight 已上傳套件仍為 iOS build 10（records/261008-ios-build10.md）、Mac build 8（records/261008-testflight.md）。
 
 # In progress
 
-- [ ] 將 fork/release/testflight 的更新透過 PR 合併至原 repo；末尾句號功能需實機驗證。
+- [ ] 推送本次 release/testflight 同步更新並透過 PR 合併；新 iOS 錄音恢復功能需實機驗證與新 build number 重新發布。
 
 - [ ] 確認 Apple 最終處理狀態與 TestFlight 測試群組分發。
 - [ ] 安裝 TestFlight build 後驗證實機錄音、iOS 鍵盤與 Mac 沙盒功能。

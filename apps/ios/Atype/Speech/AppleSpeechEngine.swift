@@ -33,9 +33,12 @@ final class AudioSink: @unchecked Sendable {
         return _level
     }
 
-    func attach(_ c: AsyncStream<AnalyzerInput>.Continuation, converter: AVAudioConverter?, target: AVAudioFormat) {
+    private var file: AVAudioFile?
+
+    func attach(_ c: AsyncStream<AnalyzerInput>.Continuation, converter: AVAudioConverter?, target: AVAudioFormat, recordTo url: URL?) {
         lock.lock(); defer { lock.unlock() }
         continuation = c
+        file = url.flatMap { try? AVAudioFile(forWriting: $0, settings: target.settings, commonFormat: target.commonFormat, interleaved: target.isInterleaved) }
         _buffers = 0
         _peak = 0
         self.converter = converter
@@ -46,6 +49,7 @@ final class AudioSink: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         continuation?.finish()
         continuation = nil
+        file = nil  // closes the take's recording
     }
 
     func push(_ buffer: AVAudioPCMBuffer) {
@@ -63,6 +67,7 @@ final class AudioSink: @unchecked Sendable {
         }
         _buffers += 1
         guard let converted = Self.convert(buffer, with: converter, to: target) else { return }
+        try? file?.write(from: converted)
         continuation.yield(AnalyzerInput(buffer: converted))
     }
 
@@ -122,7 +127,8 @@ final class AppleSpeechEngine {
     /// Called with (finalized, volatile) text while recording.
     var onPartial: ((String, String) -> Void)?
 
-    private let audioEngine = AVAudioEngine()
+    /// Replaced after iOS restarts its media services (the old one is dead).
+    private var audioEngine = AVAudioEngine()
     private let sink = AudioSink()
     private var tapInstalled = false
     private var analyzer: SpeechAnalyzer?
@@ -152,6 +158,13 @@ final class AppleSpeechEngine {
     /// until a take starts.
     func openMic() throws {
         guard !audioEngine.isRunning else { return }
+        // installTap raises (and kills the app) on an invalid format, e.g. an
+        // engine left over from before a media services reset.
+        if !Self.usable(audioEngine.inputNode.outputFormat(forBus: 0)) {
+            DebugLog.log("app", "input format unusable, rebuilding the audio engine")
+            rebuildEngine()
+            guard Self.usable(audioEngine.inputNode.outputFormat(forBus: 0)) else { throw EngineError.noAudioFormat }
+        }
         let input = audioEngine.inputNode
         if !tapInstalled {
             input.installTap(onBus: 0, bufferSize: 4096, format: input.outputFormat(forBus: 0), block: Self.makeTap(sink))
@@ -159,6 +172,19 @@ final class AppleSpeechEngine {
         }
         audioEngine.prepare()
         try audioEngine.start()
+    }
+
+    private static func usable(_ f: AVAudioFormat) -> Bool { f.sampleRate > 0 && f.channelCount > 0 }
+
+    /// Drop the engine and start from a new one (after iOS restarted its
+    /// media services, every audio object of the old server is invalid).
+    func rebuildEngine() {
+        sink.detach()
+        resultsTask?.cancel()
+        resultsTask = nil
+        analyzer = nil
+        audioEngine = AVAudioEngine()
+        tapInstalled = false
     }
 
     /// Restart the audio engine (after an interruption or a stalled input),
@@ -185,24 +211,7 @@ final class AppleSpeechEngine {
     func start(contextualStrings: [String]) async throws {
         finalized = ""
         volatile = ""
-        let module: any SpeechModule
-        let results: AsyncThrowingStream<(String, Bool), Error>
-        switch model {
-        case .speech:
-            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Self.locale) else { throw EngineError.localeUnsupported }
-            // No .fastResults: it trades accuracy for latency, and the
-            // keyboard cannot show live text while we run in the background.
-            let t = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [.volatileResults], attributeOptions: [])
-            try await Self.ensureAssets(for: t, locale: locale)
-            module = t
-            results = Self.stream(t.results) { (String($0.text.characters), $0.isFinal) }
-        case .dictation:
-            guard let locale = await DictationTranscriber.supportedLocale(equivalentTo: Self.locale) else { throw EngineError.localeUnsupported }
-            let t = DictationTranscriber(locale: locale, contentHints: [], transcriptionOptions: [.punctuation], reportingOptions: [.volatileResults], attributeOptions: [])
-            try await Self.ensureAssets(for: t, locale: locale)
-            module = t
-            results = Self.stream(t.results) { (String($0.text.characters), $0.isFinal) }
-        }
+        let (module, results) = try await makeModule(model)
         let analyzer = SpeechAnalyzer(modules: [module])
         self.analyzer = analyzer
         if !contextualStrings.isEmpty {
@@ -234,8 +243,59 @@ final class AppleSpeechEngine {
             } catch {}
         }
 
-        sink.attach(continuation, converter: micFormat == target ? nil : AVAudioConverter(from: micFormat, to: target), target: target)
+        try? FileManager.default.removeItem(at: Self.lastTakeURL)
+        sink.attach(continuation, converter: micFormat == target ? nil : AVAudioConverter(from: micFormat, to: target), target: target, recordTo: Self.lastTakeURL)
         try openMic()
+    }
+
+    /// A fresh transcriber of `model` and its results as (text, isFinal).
+    private func makeModule(_ model: Model) async throws -> (any SpeechModule, AsyncThrowingStream<(String, Bool), Error>) {
+        switch model {
+        case .speech:
+            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Self.locale) else { throw EngineError.localeUnsupported }
+            // No .fastResults: it trades accuracy for latency, and the
+            // keyboard cannot show live text while we run in the background.
+            let t = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [.volatileResults], attributeOptions: [])
+            try await Self.ensureAssets(for: t, locale: locale)
+            return (t, Self.stream(t.results) { (String($0.text.characters), $0.isFinal) })
+        case .dictation:
+            guard let locale = await DictationTranscriber.supportedLocale(equivalentTo: Self.locale) else { throw EngineError.localeUnsupported }
+            let t = DictationTranscriber(locale: locale, contentHints: [], transcriptionOptions: [.punctuation], reportingOptions: [.volatileResults], attributeOptions: [])
+            try await Self.ensureAssets(for: t, locale: locale)
+            return (t, Self.stream(t.results) { (String($0.text.characters), $0.isFinal) })
+        }
+    }
+
+    /// The last take's audio (analyzer format), kept until the next take.
+    static let lastTakeURL = FileManager.default.temporaryDirectory.appendingPathComponent("last-take.caf")
+
+    /// Transcribe the last take again from its recording (used when the live
+    /// pass came back empty although the microphone heard speech).
+    func transcribeLastTake(model: Model, contextualStrings: [String]) async -> String {
+        do {
+            let file = try AVAudioFile(forReading: Self.lastTakeURL)
+            let (module, results) = try await makeModule(model)
+            let analyzer = SpeechAnalyzer(modules: [module])
+            if !contextualStrings.isEmpty {
+                let context = AnalysisContext()
+                context.contextualStrings = [.general: contextualStrings]
+                try? await analyzer.setContext(context)
+            }
+            let collect = Task { () -> String in
+                var text = ""
+                do { for try await (t, isFinal) in results where isFinal { text += t } } catch {}
+                return text
+            }
+            if let end = try await analyzer.analyzeSequence(from: file) {
+                try await analyzer.finalizeAndFinish(through: end)
+            } else {
+                await analyzer.cancelAndFinishNow()
+            }
+            return await collect.value.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            DebugLog.log("app", "retry from file failed: \(error)")
+            return ""
+        }
     }
 
     /// Both transcribers' results as (text, isFinal).

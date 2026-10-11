@@ -251,7 +251,8 @@ final class AppModel {
             publish()
             startLevelMeter()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            DebugLog.log("app", "recording fromKeyboard=\(fromKeyboard) command=\(command)")
+            let input = AVAudioSession.sharedInstance().currentRoute.inputs.first
+            DebugLog.log("app", "recording fromKeyboard=\(fromKeyboard) command=\(command) input=\(input?.portType.rawValue ?? "none")/\(input?.portName ?? "")")
             watchMic()
         } catch {
             DebugLog.log("app", "start failed: \(error)")
@@ -271,8 +272,19 @@ final class AppModel {
         let task = UIApplication.shared.beginBackgroundTask(withName: "atype.process")
         defer { UIApplication.shared.endBackgroundTask(task) }
         let stats = engine.takeStats
-        let raw = await engine.stop()
+        var raw = await engine.stop()
         DebugLog.log("app", "stopped raw=\(raw.count) chars buffers=\(stats.buffers) peak=\(String(format: "%.2f", stats.peak)): \(raw.prefix(40))")
+        // The live pass sometimes returns nothing although the microphone
+        // heard speech: run the recorded take through again, first with the
+        // same model, then with the other one.
+        if raw.isEmpty, stats.buffers > 10, stats.peak > 0.12 {
+            let terms = config.dictionary.map(\.term)
+            for m in [recognizer, recognizer == .dictation ? .speech : .dictation] as [AppleSpeechEngine.Model] {
+                raw = await engine.transcribeLastTake(model: m, contextualStrings: terms)
+                DebugLog.log("app", "retry from file with \(m.rawValue): \(raw.count) chars")
+                if !raw.isEmpty { break }
+            }
+        }
         scheduleStandby()
         guard !raw.isEmpty else {
             errorMessage = stats.buffers == 0 ? "麥克風沒有收到聲音，請再說一次" : "沒有聽到內容"
@@ -296,26 +308,13 @@ final class AppModel {
         history.add(entry, brainFolder: SharedFolder.picked())
         historyVersion += 1
         lastEntry = entry
-        let resultID = Bridge.publishResult(entry.text)
+        Bridge.publishResult(entry.text)
         DebugLog.log("app", "published \(entry.text.count) chars")
-        // Copy the result unless the keyboard confirms it reached the text
-        // field: a confirmed take must not push an unconfirmed one off the
-        // clipboard.
-        if autoCopy {
-            if fromKeyboard {
-                let text = entry.text
-                let copyTask = UIApplication.shared.beginBackgroundTask(withName: "atype.copy")
-                Task { @MainActor in
-                    defer { UIApplication.shared.endBackgroundTask(copyTask) }
-                    try? await Task.sleep(for: .seconds(2))
-                    guard Bridge.resultID == resultID, !Bridge.lastInsertConfirmed else { return }
-                    UIPasteboard.general.string = text
-                    DebugLog.log("app", "insert not confirmed in 2 s: copied")
-                }
-            } else {
-                UIPasteboard.general.string = entry.text
-            }
-        }
+        // Copy every result. The keyboard's own check reads the field it is
+        // attached to, which in some apps (Claude) can be a stale one after a
+        // message was sent, so "inserted" cannot be trusted; the latest take
+        // is always on the clipboard.
+        if autoCopy { UIPasteboard.general.string = entry.text }
         fromKeyboard = false
         phase = .idle
         publish()
@@ -356,8 +355,25 @@ final class AppModel {
             let reason = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt ?? 0
             Task { @MainActor in DebugLog.log("app", "audio route change reason=\(reason) phase=\(self.phase)") }
         }
+        // iOS restarted its audio server: every engine and session setting
+        // is gone. Rebuild, end standby (the keyboard then wakes the app,
+        // which sets the session up again) and drop a take in progress.
         center.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { _ in
-            Task { @MainActor in DebugLog.log("app", "media services reset phase=\(self.phase)") }
+            Task { @MainActor in
+                DebugLog.log("app", "media services reset phase=\(self.phase)")
+                let wasBusy = self.phase != .idle
+                self.engine.rebuildEngine()
+                self.standbyTimer?.invalidate()
+                self.heartbeatTimer?.invalidate()
+                self.heartbeatTimer = nil
+                Bridge.standbyUntil = .distantPast
+                if wasBusy {
+                    self.errorMessage = "音訊服務重新啟動，請再說一次"
+                    self.fromKeyboard = false
+                    self.phase = .idle
+                }
+                self.publish()
+            }
         }
     }
 

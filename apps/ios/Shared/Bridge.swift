@@ -102,21 +102,9 @@ enum Bridge {
         Date().timeIntervalSince(heartbeat) < 3 && (standbyUntil > Date() || phase != .idle)
     }
 
-    /// The keyboard confirmed the latest result is in the text field.
-    static var lastInsertConfirmed: Bool {
-        get { defaults.bool(forKey: "lastInsertConfirmed") }
-        set { defaults.set(newValue, forKey: "lastInsertConfirmed") }
-    }
-
-    static var resultID: String? { defaults.string(forKey: Key.resultID) }
-
-    @discardableResult
-    static func publishResult(_ text: String) -> String {
-        lastInsertConfirmed = false
+    static func publishResult(_ text: String) {
         defaults.set(text, forKey: Key.resultText)
-        let id = UUID().uuidString
-        defaults.set(id, forKey: Key.resultID)
-        return id
+        defaults.set(UUID().uuidString, forKey: Key.resultID)
     }
 
     /// The result the keyboard has not inserted yet, if any; marks it taken.
